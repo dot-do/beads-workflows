@@ -51,27 +51,29 @@ export function parseCommand(args: string[]): Command {
     return cmd
   }
 
-  const firstArg = args[0]
+  const firstArg = args[0]!
 
   if (firstArg === 'list') {
     cmd.command = 'list'
     for (let i = 1; i < args.length; i++) {
-      if (args[i] === '--failed') {
+      const arg = args[i]!
+      if (arg === '--failed') {
         cmd.failed = true
-      } else if (args[i] === '--issue') {
+      } else if (arg === '--issue') {
         cmd.issue = args[++i]
       }
     }
   } else if (firstArg === 'retry') {
     cmd.command = 'retry'
     for (let i = 1; i < args.length; i++) {
-      if (args[i] === '--all-failed') {
+      const arg = args[i]!
+      if (arg === '--all-failed') {
         cmd.allFailed = true
-      } else if (!args[i].startsWith('-')) {
+      } else if (!arg.startsWith('-')) {
         if (!cmd.issue) {
-          cmd.issue = args[i]
+          cmd.issue = arg
         } else if (!cmd.event) {
-          cmd.event = args[i]
+          cmd.event = arg
         }
       }
     }
@@ -79,14 +81,14 @@ export function parseCommand(args: string[]): Command {
     cmd.command = 'run'
     const startIdx = firstArg === 'run' ? 1 : 0
     for (let i = startIdx; i < args.length; i++) {
-      if (args[i] === '--once') {
+      if (args[i]! === '--once') {
         cmd.once = true
       }
     }
   } else {
     // Handle flags for default run command
     for (let i = 0; i < args.length; i++) {
-      if (args[i] === '--once') {
+      if (args[i]! === '--once') {
         cmd.once = true
       }
     }

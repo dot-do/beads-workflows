@@ -121,7 +121,8 @@ export function createWatcher(beadsDir: string, options: WatcherOptions = {}): W
           let type: WatcherEventType = 'updated'
           if (issue.status === 'closed') {
             type = 'closed'
-          } else if (previous.status === 'closed' && issue.status !== 'closed') {
+          } else if (previous.status === 'closed') {
+            // Was closed, now open/in_progress
             type = 'reopened'
           }
 
@@ -228,7 +229,7 @@ export function createWatcher(beadsDir: string, options: WatcherOptions = {}): W
       return running
     },
 
-    on(event: string, handler: (...args: unknown[]) => void): void {
+    on: ((event: string, handler: unknown): void => {
       if (event === 'issue') {
         issueHandlers.push(handler as (event: WatcherEvent) => void)
       } else if (event === 'change') {
@@ -236,6 +237,6 @@ export function createWatcher(beadsDir: string, options: WatcherOptions = {}): W
       } else if (event === 'error') {
         errorHandlers.push(handler as (error: Error) => void)
       }
-    },
+    }) as Watcher['on'],
   }
 }

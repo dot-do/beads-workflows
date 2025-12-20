@@ -61,7 +61,7 @@ export function createScanner(beadsDir: string): Scanner {
         for (const file of files) {
           // Match on.*.ts or on.*.js (event handlers)
           const eventMatch = file.match(/^on\.(.+)\.(ts|js)$/)
-          if (eventMatch) {
+          if (eventMatch && eventMatch[1]) {
             const eventName = eventMatch[1]
             const info: HandlerInfo = {
               event: eventName,
@@ -74,7 +74,7 @@ export function createScanner(beadsDir: string): Scanner {
 
           // Match every.*.ts or every.*.js (schedule handlers)
           const scheduleMatch = file.match(/^every\.(.+)\.(ts|js)$/)
-          if (scheduleMatch) {
+          if (scheduleMatch && scheduleMatch[1]) {
             const scheduleName = scheduleMatch[1]
             const cron = SCHEDULE_CRONS[scheduleName]
             const event = SCHEDULE_EVENTS[scheduleName]

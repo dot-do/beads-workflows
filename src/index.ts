@@ -47,7 +47,7 @@ export type { Hooks } from './hooks'
 
 // Issues API
 export { createIssuesApi } from './issues'
-export type { IssuesApi, ListFilter } from './issues'
+export type { IssuesApi, ListFilter as IssuesListFilter } from './issues'
 
 // Epics API
 export { createEpicsApi } from './epics'
@@ -75,7 +75,7 @@ export type { Runtime, HandlerContext, HandlerGlobals, HandlerFn, ExecutionResul
 
 // Workflows
 export { Workflows } from './workflows'
-export type { WorkflowsApi, WorkflowRecord, IssueWorkflowRecord, ScheduleWorkflowRecord, RecordInput, ListFilter, RetryInfo } from './workflows'
+export type { WorkflowsApi, WorkflowRecord, IssueWorkflowRecord, ScheduleWorkflowRecord, RecordInput, ListFilter as WorkflowsListFilter, RetryInfo } from './workflows'
 
 // Diff
 export { diff } from './diff'
