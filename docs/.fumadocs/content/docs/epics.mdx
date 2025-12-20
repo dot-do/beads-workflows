@@ -1,0 +1,160 @@
+---
+title: Epics API
+description: Epic management and progress tracking
+---
+
+# Epics API
+
+Epics group related issues together with automatic progress tracking.
+
+## Accessing the API
+
+```typescript
+import { Beads } from 'beads-workflows'
+
+const beads = await Beads()
+const { epics } = beads
+```
+
+## Reading Epics
+
+### list
+
+Get all epics with optional filtering:
+
+```typescript
+// All epics
+const all = await epics.list()
+
+// Filter by status
+const open = await epics.list({ status: 'open' })
+const completed = await epics.list({ status: 'closed' })
+```
+
+### get
+
+Get a single epic by ID:
+
+```typescript
+const epic = await epics.get('bw-epic-1')
+if (epic) {
+  console.log(epic.title, epic.status)
+}
+```
+
+## Progress Tracking
+
+### progress
+
+Get completion progress for an epic:
+
+```typescript
+const progress = await epics.progress('bw-epic-1')
+
+console.log(progress)
+// {
+//   total: 10,      // Total child issues
+//   completed: 6,   // Closed issues
+//   percentage: 60, // Completion percentage
+//   remaining: 4,   // Open issues
+//   blocked: 1,     // Issues with blockers
+// }
+```
+
+### children
+
+Get all issues belonging to an epic:
+
+```typescript
+const children = await epics.children('bw-epic-1')
+
+// Filter children by status
+const openChildren = children.filter(i => i.status === 'open')
+```
+
+## Creating Epics
+
+Epics are created as issues with `type: 'epic'`:
+
+```typescript
+const epic = await beads.issues.create({
+  title: 'User Authentication System',
+  type: 'epic',
+  priority: 1,
+  description: 'Complete auth implementation',
+})
+```
+
+## Linking Issues to Epics
+
+Issues are linked to epics via dependencies:
+
+```typescript
+// Create epic
+const epic = await beads.issues.create({
+  title: 'v2.0 Release',
+  type: 'epic',
+})
+
+// Create child issues that depend on (belong to) the epic
+await beads.issues.create({
+  title: 'Implement feature A',
+  dependsOn: [epic.id],
+})
+
+await beads.issues.create({
+  title: 'Implement feature B',
+  dependsOn: [epic.id],
+})
+```
+
+## Epic Type
+
+Epics use the same `Issue` type with `type: 'epic'`:
+
+```typescript
+interface Epic extends Issue {
+  type: 'epic'
+}
+```
+
+## Progress Type
+
+```typescript
+interface EpicProgress {
+  total: number       // Total child issues
+  completed: number   // Closed child issues
+  percentage: number  // 0-100
+  remaining: number   // Open child issues
+  blocked: number     // Child issues with blockers
+}
+```
+
+## Filter Type
+
+```typescript
+interface EpicFilter {
+  status?: 'open' | 'in_progress' | 'closed'
+}
+```
+
+## Completing Epics
+
+Epics can be closed manually or automatically when all children are complete:
+
+```typescript
+// Manual close
+await beads.issues.close('bw-epic-1')
+
+// Or use a workflow to auto-close
+// .beads/on.issue.closed.ts
+export default async ({ issue, beads }) => {
+  // Check if this closes an epic
+  for (const epicId of issue.blocks) {
+    const progress = await beads.epics.progress(epicId)
+    if (progress.percentage === 100) {
+      await beads.issues.close(epicId)
+    }
+  }
+}
+```

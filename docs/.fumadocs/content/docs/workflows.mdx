@@ -1,0 +1,184 @@
+---
+title: Workflows API
+description: Execution tracking and retry capabilities
+---
+
+# Workflows API
+
+Track workflow execution history and manage retries.
+
+## Overview
+
+All handler executions are logged to `.beads/workflows.jsonl`, providing:
+
+- **Audit trail**: What ran, when, and with what result
+- **Idempotency**: Prevent duplicate executions
+- **Retry**: Re-run failed handlers
+
+## Basic Usage
+
+```typescript
+import { Workflows } from 'beads-workflows'
+
+const workflows = Workflows('.beads')
+```
+
+## Recording Executions
+
+```typescript
+await workflows.record({
+  type: 'issue',
+  issue: 'bw-123',
+  event: 'created',
+  status: 'success',
+  handler: 'on.issue.created.ts',
+  trigger: 'push',
+  commit: 'abc123',
+  duration: 142,
+})
+```
+
+### Record Input
+
+```typescript
+interface RecordInput {
+  type: 'issue' | 'schedule' | 'manual'
+  status: 'success' | 'failed'
+  handler: string           // Handler filename
+  trigger: string           // 'push' | 'schedule' | 'workflow_dispatch' | 'daemon'
+  commit: string            // Git SHA
+  duration: number          // Milliseconds
+
+  // For issue events
+  issue?: string            // Issue ID
+  event?: string            // Event name (created, closed, etc.)
+
+  // For schedule events
+  cron?: string             // Cron expression
+
+  // For failures
+  error?: string            // Error message
+}
+```
+
+## Checking Execution Status
+
+### wasExecuted
+
+Check if an event was already handled (for idempotency):
+
+```typescript
+const executed = await workflows.wasExecuted('bw-123', 'created')
+
+if (!executed) {
+  // Run handler
+  await runHandler()
+  await workflows.record({ ... })
+}
+```
+
+## Listing Executions
+
+### list
+
+Get execution history:
+
+```typescript
+// All executions
+const all = await workflows.list()
+
+// Filter by issue
+const forIssue = await workflows.list({ issue: 'bw-123' })
+```
+
+### listFailed
+
+Get failed executions for retry:
+
+```typescript
+const failed = await workflows.listFailed()
+
+for (const record of failed) {
+  console.log(`Failed: ${record.issue} ${record.event}`)
+  console.log(`  Error: ${record.error}`)
+  console.log(`  Handler: ${record.handler}`)
+}
+```
+
+## Retrying Failed Executions
+
+### retry
+
+Get information needed to retry a failed execution:
+
+```typescript
+const retryInfo = await workflows.retry('bw-123', 'closed')
+
+if (retryInfo) {
+  console.log(`Retrying ${retryInfo.handler}`)
+  // Re-execute the handler
+}
+```
+
+## Record Types
+
+### Issue Workflow Record
+
+```typescript
+interface IssueWorkflowRecord {
+  type: 'issue'
+  issue: string
+  event: string
+  status: 'success' | 'failed'
+  handler: string
+  triggered_at: string      // ISO timestamp
+  duration: number
+  commit: string
+  trigger: string
+  error?: string
+}
+```
+
+### Schedule Workflow Record
+
+```typescript
+interface ScheduleWorkflowRecord {
+  type: 'schedule'
+  cron: string
+  status: 'success' | 'failed'
+  handler: string
+  triggered_at: string
+  duration: number
+  commit: string
+  trigger: string
+  error?: string
+}
+```
+
+## workflows.jsonl Format
+
+```jsonl
+{"type":"issue","issue":"bw-123","event":"created","status":"success","handler":"on.issue.created.ts","triggered_at":"2025-01-01T10:00:00Z","duration":142,"commit":"abc123","trigger":"push"}
+{"type":"issue","issue":"bw-456","event":"closed","status":"failed","handler":"on.issue.closed.ts","error":"bd command failed","triggered_at":"2025-01-01T10:00:05Z","duration":89,"commit":"abc123","trigger":"push"}
+{"type":"schedule","cron":"0 * * * *","status":"success","handler":"every.hour.ts","triggered_at":"2025-01-01T11:00:00Z","duration":5230,"commit":"def456","trigger":"schedule"}
+```
+
+## Integration with Runtime
+
+The runtime automatically records executions:
+
+```typescript
+import { createRuntime } from 'beads-workflows'
+
+const runtime = createRuntime('.beads')
+
+const result = await runtime.execute('issue.created', handler, {
+  issue,
+  previousIssue,
+})
+
+// Result includes execution metadata
+console.log(result.success)   // boolean
+console.log(result.duration)  // number
+console.log(result.error)     // string | undefined
+```

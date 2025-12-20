@@ -1,0 +1,179 @@
+---
+title: Issues API
+description: Create, read, update, and close issues
+---
+
+# Issues API
+
+The Issues API provides full CRUD operations for beads issues.
+
+## Accessing the API
+
+```typescript
+import { Beads } from 'beads-workflows'
+
+const beads = await Beads()
+const { issues } = beads
+```
+
+## Reading Issues
+
+### list
+
+Get all issues with optional filtering:
+
+```typescript
+// All issues
+const all = await issues.list()
+
+// Filter by status
+const open = await issues.list({ status: 'open' })
+const closed = await issues.list({ status: 'closed' })
+
+// Filter by type
+const bugs = await issues.list({ type: 'bug' })
+const features = await issues.list({ type: 'feature' })
+
+// Filter by assignee
+const mine = await issues.list({ assignee: 'nathan' })
+
+// Combine filters
+const myOpenBugs = await issues.list({
+  status: 'open',
+  type: 'bug',
+  assignee: 'nathan'
+})
+```
+
+### ready
+
+Get issues that are ready to work on (no unresolved blockers):
+
+```typescript
+const ready = await issues.ready()
+// Returns issues where all dependencies are closed
+```
+
+### blocked
+
+Get issues that are blocked by open dependencies:
+
+```typescript
+const blocked = await issues.blocked()
+// Returns issues with at least one open dependency
+```
+
+### get
+
+Get a single issue by ID:
+
+```typescript
+const issue = await issues.get('bw-123')
+if (issue) {
+  console.log(issue.title, issue.status)
+}
+```
+
+## Creating Issues
+
+```typescript
+const created = await issues.create({
+  title: 'Implement user authentication',
+  type: 'feature',        // 'task' | 'bug' | 'feature' | 'epic'
+  priority: 2,            // 0-4 (0 = critical, 4 = backlog)
+  description: 'Add OAuth support',
+  assignee: 'nathan',
+  labels: ['auth', 'security'],
+})
+
+console.log(created.id) // 'bw-xyz'
+```
+
+### Required Fields
+
+- `title`: Issue title
+
+### Optional Fields
+
+- `type`: Issue type (default: `'task'`)
+- `priority`: 0-4 (default: `2`)
+- `description`: Detailed description
+- `assignee`: Username
+- `labels`: Array of labels
+- `dependsOn`: Array of issue IDs this depends on
+
+## Updating Issues
+
+```typescript
+await issues.update('bw-123', {
+  status: 'in_progress',
+  assignee: 'nathan',
+  priority: 1,
+})
+```
+
+### Updatable Fields
+
+- `status`: `'open'` | `'in_progress'` | `'closed'`
+- `priority`: 0-4
+- `assignee`: Username or null
+- `labels`: Array of labels
+- `title`: Issue title
+- `description`: Issue description
+
+## Closing Issues
+
+```typescript
+// Simple close
+await issues.close('bw-123')
+
+// Close with reason
+await issues.close('bw-123', { reason: 'Completed in PR #45' })
+```
+
+## Issue Type
+
+```typescript
+interface Issue {
+  id: string
+  title: string
+  description?: string
+  status: 'open' | 'in_progress' | 'closed'
+  type: 'task' | 'bug' | 'feature' | 'epic'
+  priority: number        // 0-4
+  assignee?: string
+  labels?: string[]
+  created: Date
+  updated: Date
+  closed?: Date
+  dependsOn: string[]     // IDs of blocking issues
+  blocks: string[]        // IDs of issues this blocks
+}
+```
+
+## Filter Type
+
+```typescript
+interface ListFilter {
+  status?: 'open' | 'in_progress' | 'closed'
+  type?: 'task' | 'bug' | 'feature' | 'epic'
+  assignee?: string
+  label?: string
+}
+```
+
+## Working with Dependencies
+
+```typescript
+// Create issue with dependencies
+await issues.create({
+  title: 'Write tests',
+  dependsOn: ['bw-123'], // Depends on feature implementation
+})
+
+// Check if issue is blocked
+const issue = await issues.get('bw-456')
+const isBlocked = issue.dependsOn.length > 0 &&
+  (await issues.list({ status: 'open' }))
+    .some(i => issue.dependsOn.includes(i.id))
+```

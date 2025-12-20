@@ -1,3 +1,8 @@
+---
+title: beads-workflows Design Document
+description: Design document for the beads-workflows SDK
+---
+
 # beads-workflows Design Document
 
 **Date:** 2025-12-20

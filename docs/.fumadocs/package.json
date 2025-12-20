@@ -1,0 +1,36 @@
+{
+  "name": "beads-workflows-docs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "cf-typegen": "wrangler types",
+    "dev": "waku dev",
+    "build": "waku build",
+    "start": "wrangler dev",
+    "deploy": "waku build && wrangler deploy"
+  },
+  "dependencies": {
+    "fumadocs-core": "^16.3.0",
+    "fumadocs-mdx": "^14.2.0",
+    "fumadocs-ui": "^16.3.0",
+    "hono": "^4.10.0",
+    "lucide-react": "^0.552.0",
+    "react": "~19.2.0",
+    "react-dom": "~19.2.0",
+    "vite-tsconfig-paths": "^6.0.3",
+    "waku": "^0.27.0"
+  },
+  "devDependencies": {
+    "@hiogawa/node-loader-cloudflare": "^0.0.2",
+    "@tailwindcss/vite": "^4.1.18",
+    "@types/mdx": "^2.0.13",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^4.5.0",
+    "miniflare": "^4.0.0",
+    "tailwindcss": "^4.1.18",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.54.0"
+  }
+}

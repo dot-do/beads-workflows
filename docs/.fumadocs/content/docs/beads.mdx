@@ -1,0 +1,103 @@
+---
+title: Beads API
+description: Main factory function and configuration
+---
+
+# Beads API
+
+The `Beads` factory creates a configured instance with access to issues and epics APIs.
+
+## Basic Usage
+
+```typescript
+import { Beads } from 'beads-workflows'
+
+// Auto-detect .beads directory (searches up from cwd)
+const beads = await Beads()
+
+// Or specify path explicitly
+const beads = await Beads({ path: '/path/to/.beads' })
+```
+
+## Options
+
+```typescript
+interface BeadsOptions {
+  path?: string      // Path to .beads directory
+  autoDetect?: boolean  // Search parent directories (default: true)
+}
+```
+
+## Instance Properties
+
+```typescript
+interface BeadsInstance {
+  issues: IssuesApi   // Issue operations
+  epics: EpicsApi     // Epic operations
+  path: string        // Resolved .beads path
+}
+```
+
+## Auto-Detection
+
+By default, `Beads()` searches for a `.beads` directory starting from the current working directory and traversing upward:
+
+```typescript
+// In /project/packages/api
+const beads = await Beads()
+// Finds /project/.beads if it exists
+```
+
+Disable auto-detection to require an explicit path:
+
+```typescript
+const beads = await Beads({
+  path: '.beads',
+  autoDetect: false
+})
+```
+
+## Helper Functions
+
+### autoDetectBeads
+
+Find the `.beads` directory without creating a full instance:
+
+```typescript
+import { autoDetectBeads } from 'beads-workflows'
+
+const beadsPath = await autoDetectBeads()
+// Returns path or null
+```
+
+### findBeadsDir
+
+Lower-level function to locate `.beads`:
+
+```typescript
+import { findBeadsDir } from 'beads-workflows'
+
+const dir = await findBeadsDir('/start/path')
+```
+
+## Error Handling
+
+```typescript
+try {
+  const beads = await Beads()
+} catch (error) {
+  // No .beads directory found
+  console.error('Initialize beads first: bd init')
+}
+```
+
+## TypeScript Types
+
+```typescript
+import type {
+  BeadsOptions,
+  BeadsInstance,
+  Issue,
+  Epic,
+} from 'beads-workflows'
+```

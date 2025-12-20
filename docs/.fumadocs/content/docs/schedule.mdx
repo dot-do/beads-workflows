@@ -1,0 +1,178 @@
+---
+title: Schedule API
+description: Time-based workflow execution
+---
+
+# Schedule API
+
+Run workflows on a schedule using file-based or programmatic handlers.
+
+## File-Based Schedules
+
+Create convention-based files for common intervals:
+
+| File | Schedule | Cron |
+|------|----------|------|
+| `every.hour.ts` | Every hour at :00 | `0 * * * *` |
+| `every.day.ts` | Daily at midnight | `0 0 * * *` |
+| `every.week.ts` | Weekly on Sunday | `0 0 * * 0` |
+
+### Example: Hourly Review
+
+```typescript
+// .beads/every.hour.ts
+export default async ({ issues, epics, beads }) => {
+  // Find stale in-progress issues (no update in 24h)
+  const staleThreshold = Date.now() - 24 * 60 * 60 * 1000
+
+  const stale = issues.filter(issue =>
+    issue.status === 'in_progress' &&
+    issue.updated.getTime() < staleThreshold
+  )
+
+  for (const issue of stale) {
+    console.log(`Stale issue: ${issue.id} - ${issue.title}`)
+    // Could add a label, notify, or create a reminder
+  }
+}
+```
+
+### Example: Daily Digest
+
+```typescript
+// .beads/every.day.ts
+export default async ({ issues, epics }) => {
+  const open = issues.filter(i => i.status === 'open')
+  const inProgress = issues.filter(i => i.status === 'in_progress')
+  const blocked = issues.filter(i => i.dependsOn.some(dep =>
+    issues.find(d => d.id === dep && d.status !== 'closed')
+  ))
+
+  console.log(`📊 Daily Summary:`)
+  console.log(`   Open: ${open.length}`)
+  console.log(`   In Progress: ${inProgress.length}`)
+  console.log(`   Blocked: ${blocked.length}`)
+
+  // Could send to Slack, email, etc.
+}
+```
+
+### Example: Weekly Cleanup
+
+```typescript
+// .beads/every.week.ts
+export default async ({ issues, beads }) => {
+  // Close issues that have been done for 30+ days
+  const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000
+
+  const toArchive = issues.filter(issue =>
+    issue.status === 'closed' &&
+    issue.closed &&
+    issue.closed.getTime() < thirtyDaysAgo
+  )
+
+  console.log(`Archiving ${toArchive.length} old closed issues`)
+  // Archive logic here
+}
+```
+
+## Programmatic Schedules
+
+For custom cron expressions, use the `every()` API:
+
+```typescript
+// .beads/schedules.ts
+import { every } from 'beads-workflows'
+
+// Every 15 minutes
+every('*/15 * * * *', async ({ issues }) => {
+  console.log(`Quick check: ${issues.length} issues`)
+})
+
+// 9am on weekdays
+every('0 9 * * 1-5', async ({ issues, beads }) => {
+  const ready = await beads.issues.ready()
+  console.log(`Good morning! ${ready.length} issues ready to work`)
+})
+
+// First of the month
+every('0 0 1 * *', async ({ epics }) => {
+  console.log(`Monthly review: ${epics.length} epics`)
+})
+```
+
+## Schedule Context
+
+Schedule handlers receive a context with pre-loaded data:
+
+```typescript
+interface ScheduleContext {
+  issues: Issue[]           // All issues
+  epics: Epic[]             // All epics
+  beads: BeadsInstance      // Full API access
+  cron: string              // The cron expression
+  triggeredAt: Date         // Execution timestamp
+}
+```
+
+## Cron Presets
+
+The SDK exports common cron expressions:
+
+```typescript
+import { CRON_PRESETS } from 'beads-workflows'
+
+CRON_PRESETS.hourly  // '0 * * * *'
+CRON_PRESETS.daily   // '0 0 * * *'
+CRON_PRESETS.weekly  // '0 0 * * 0'
+```
+
+## Helper Functions
+
+### getScheduledHandlers
+
+Get all registered schedule handlers:
+
+```typescript
+import { getScheduledHandlers } from 'beads-workflows'
+
+const handlers = getScheduledHandlers()
+// [{ cron: '0 * * * *', handler: fn }, ...]
+
+// Filter by cron
+const hourly = getScheduledHandlers('0 * * * *')
+```
+
+### getCronExpression / getCronName
+
+Convert between cron expressions and names:
+
+```typescript
+import { getCronExpression, getCronName } from 'beads-workflows'
+
+getCronExpression('hourly')  // '0 * * * *'
+getCronName('0 0 * * *')     // 'daily'
+```
+
+## GitHub Action Integration
+
+When running in GitHub Actions, schedules map directly to cron triggers:
+
+```yaml
+# .github/workflows/beads-workflows.yml
+on:
+  schedule:
+    - cron: '0 * * * *'   # Runs every.hour.ts
+    - cron: '0 0 * * *'   # Runs every.day.ts
+    - cron: '0 0 * * 0'   # Runs every.week.ts
+```
+
+The action receives `github.event.schedule` containing the cron expression that triggered the run.
+
+## Execution Tracking
+
+Schedule executions are logged in `workflows.jsonl`:
+
+```jsonl
+{"type":"schedule","cron":"0 * * * *","status":"success","handler":"every.hour.ts","triggered_at":"2025-01-01T11:00:00Z","duration":142}
+```

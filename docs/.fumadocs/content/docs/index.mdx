@@ -1,0 +1,84 @@
+---
+$type: Docs
+title: beads-workflows
+description: Workflow engine + TypeScript SDK for beads issue tracker
+domain: beads.workflows.do
+github: https://github.com/dot-do/beads-workflows
+---
+
+# beads-workflows
+
+Workflow engine and TypeScript SDK for the [beads](https://github.com/beads-ai/beads) issue tracker. Build automated workflows that react to issue changes, run on schedules, and execute in GitHub Actions or as a local daemon.
+
+## Installation
+
+```bash
+bun add beads-workflows
+```
+
+## Quick Start
+
+```typescript
+import { Beads } from 'beads-workflows'
+
+const beads = await Beads()
+
+// List ready issues (no blockers)
+const ready = await beads.issues.ready()
+
+// Create an issue
+await beads.issues.create({
+  title: 'Implement feature X',
+  type: 'feature',
+  priority: 2,
+})
+
+// Close when done
+await beads.issues.close('bw-123')
+```
+
+## Key Concepts
+
+### Issues & Epics
+
+The SDK provides full read/write access to beads issues and epics:
+
+- **Issues**: Tasks, bugs, features with status, priority, dependencies
+- **Epics**: Groups of related issues with progress tracking
+
+### Event Handlers
+
+Create convention-based handler files in `.beads/`:
+
+```typescript
+// .beads/on.issue.created.ts
+export default async ({ issue, beads }) => {
+  console.log(`New issue: ${issue.title}`)
+}
+```
+
+### Scheduled Handlers
+
+Run workflows on a schedule:
+
+```typescript
+// .beads/every.hour.ts
+export default async ({ issues, epics }) => {
+  const stale = issues.filter(i => /* stale check */)
+  // Process stale issues
+}
+```
+
+### Execution Modes
+
+- **Daemon**: Local watcher that reacts to file changes
+- **GitHub Action**: CI/CD integration for push, schedule, and manual triggers
+- **CLI**: One-off commands and retry capabilities
+
+## What's Next
+
+- [Beads API](/docs/beads) - Main factory and configuration
+- [Issues API](/docs/issues) - Working with issues
+- [Epics API](/docs/epics) - Epic management and progress
+- [Workflows](/docs/workflows) - Execution tracking
+- [CLI Reference](/docs/cli) - Command-line interface

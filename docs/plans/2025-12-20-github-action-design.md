@@ -1,3 +1,8 @@
+---
+title: GitHub Action Design Document
+description: Design document for the GitHub Action integration
+---
+
 # GitHub Action for beads-workflows
 
 ## Overview

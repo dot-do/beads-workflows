@@ -1,0 +1,186 @@
+---
+title: CLI Reference
+description: Command-line interface for beads-workflows
+---
+
+# CLI Reference
+
+The `beads-workflows` CLI runs workflows as a daemon or single-pass executor.
+
+## Installation
+
+```bash
+bun add beads-workflows
+
+# Or globally
+bun add -g beads-workflows
+```
+
+## Commands
+
+### run
+
+Start the workflow daemon or run once:
+
+```bash
+# Watch mode (daemon)
+beads-workflows run
+
+# Single pass, then exit
+beads-workflows run --once
+
+# With explicit path
+beads-workflows run --path /project/.beads
+
+# Verbose output
+beads-workflows run --verbose
+```
+
+#### Options
+
+| Option | Short | Description |
+|--------|-------|-------------|
+| `--path` | `-p` | Path to .beads directory |
+| `--verbose` | `-v` | Enable verbose logging |
+| `--once` | | Run once and exit |
+
+### list
+
+View workflow execution history:
+
+```bash
+# All executions
+beads-workflows list
+
+# Failed only
+beads-workflows list --failed
+
+# For specific issue
+beads-workflows list --issue bw-123
+```
+
+#### Output
+
+```
+✓ 2025-01-01T10:00:00Z bw-123 created (on.issue.created.ts)
+✓ 2025-01-01T10:00:05Z bw-456 closed (on.issue.closed.ts)
+✗ 2025-01-01T10:00:10Z bw-789 updated (on.issue.updated.ts)
+```
+
+### retry
+
+Re-run failed workflow executions:
+
+```bash
+# Retry specific event
+beads-workflows retry bw-123 closed
+
+# Retry all failed
+beads-workflows retry --all-failed
+```
+
+## Daemon Mode
+
+In daemon mode, the CLI:
+
+1. Scans for handler files (`on.*.ts`, `every.*.ts`)
+2. Watches `issues.jsonl` for changes
+3. Executes matching handlers when issues change
+4. Logs results to `workflows.jsonl`
+
+```bash
+$ beads-workflows run
+beads-workflows daemon
+Watching: /project/.beads
+Loaded 3 handler(s)
+Daemon running. Press Ctrl+C to stop.
+```
+
+### Graceful Shutdown
+
+Send `SIGINT` (Ctrl+C) or `SIGTERM` for graceful shutdown:
+
+```bash
+^C
+Shutting down...
+Daemon stopped
+```
+
+## Single Pass Mode
+
+With `--once`, the CLI:
+
+1. Scans for handlers
+2. Processes any pending events
+3. Exits immediately
+
+Useful for:
+- GitHub Actions
+- Cron jobs
+- CI/CD pipelines
+- Testing
+
+```bash
+$ beads-workflows run --once
+beads-workflows daemon
+Watching: /project/.beads
+Single pass complete.
+```
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | Handler execution failed |
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `BEADS_PATH` | Default path to .beads directory |
+| `BEADS_VERBOSE` | Enable verbose logging |
+
+## Programmatic Usage
+
+The CLI can be used programmatically:
+
+```typescript
+import { createDaemon, parseArgs, parseCommand } from 'beads-workflows'
+
+const daemon = createDaemon({
+  path: '.beads',
+  verbose: true,
+  once: false,
+  onHandlerExecuted: (event, result) => {
+    console.log(`${event}: ${result.success ? 'ok' : 'failed'}`)
+  },
+})
+
+await daemon.start()
+
+// Later...
+await daemon.stop()
+```
+
+### Daemon Interface
+
+```typescript
+interface Daemon {
+  start(): Promise<void>
+  stop(): Promise<void>
+  isRunning(): boolean
+  getHandlerCount(): number
+}
+```
+
+### DaemonOptions
+
+```typescript
+interface DaemonOptions {
+  path: string                // .beads directory path
+  verbose?: boolean           // Enable logging
+  once?: boolean              // Single pass mode
+  onHandlerExecuted?: (event: string, result: { success: boolean }) => void
+}
+```

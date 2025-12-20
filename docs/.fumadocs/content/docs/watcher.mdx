@@ -1,0 +1,248 @@
+---
+title: Watcher & Scanner
+description: Low-level APIs for file watching and handler discovery
+---
+
+# Watcher & Scanner
+
+Low-level APIs for building custom workflow runners.
+
+## Watcher
+
+Watches `issues.jsonl` for changes and emits events.
+
+### Creating a Watcher
+
+```typescript
+import { createWatcher } from 'beads-workflows'
+
+const watcher = createWatcher('.beads')
+```
+
+### Events
+
+```typescript
+watcher.on('issue', (event) => {
+  console.log(event.type)   // 'created' | 'updated' | 'closed'
+  console.log(event.issue)  // The affected issue
+  console.log(event.previousIssue) // Previous state (for updates)
+})
+
+watcher.on('error', (error) => {
+  console.error('Watcher error:', error)
+})
+```
+
+### Lifecycle
+
+```typescript
+// Start watching
+await watcher.start()
+
+// Check status
+console.log(watcher.isWatching()) // true
+
+// Stop watching
+await watcher.stop()
+```
+
+### Watcher Interface
+
+```typescript
+interface Watcher {
+  start(): Promise<void>
+  stop(): Promise<void>
+  isWatching(): boolean
+  on(event: 'issue', handler: (event: WatcherEvent) => void): void
+  on(event: 'error', handler: (error: Error) => void): void
+}
+```
+
+### WatcherEvent
+
+```typescript
+interface WatcherEvent {
+  type: 'created' | 'updated' | 'closed'
+  issue: Issue
+  previousIssue?: Issue
+}
+```
+
+### Options
+
+```typescript
+interface WatcherOptions {
+  debounceMs?: number  // Debounce file changes (default: 100ms)
+}
+
+const watcher = createWatcher('.beads', { debounceMs: 200 })
+```
+
+## Scanner
+
+Discovers handler files in the `.beads` directory.
+
+### Creating a Scanner
+
+```typescript
+import { createScanner } from 'beads-workflows'
+
+const scanner = createScanner('.beads')
+```
+
+### Scanning for Handlers
+
+```typescript
+const handlers = await scanner.scan()
+
+for (const handler of handlers) {
+  console.log(handler.event)     // 'issue.created'
+  console.log(handler.path)      // '/project/.beads/on.issue.created.ts'
+  console.log(handler.filename)  // 'on.issue.created.ts'
+  console.log(handler.cron)      // '0 * * * *' (for schedule handlers)
+}
+```
+
+### Getting Handlers Map
+
+```typescript
+// After scanning
+const handlersMap = scanner.getHandlers()
+
+if (handlersMap.has('issue.created')) {
+  const handler = handlersMap.get('issue.created')
+  console.log(handler.path)
+}
+```
+
+### Schedule Handlers
+
+```typescript
+// Get only schedule handlers
+const scheduleHandlers = scanner.getScheduleHandlers()
+
+for (const handler of scheduleHandlers) {
+  console.log(handler.event)  // 'schedule.hourly'
+  console.log(handler.cron)   // '0 * * * *'
+}
+```
+
+### Scanner Interface
+
+```typescript
+interface Scanner {
+  scan(): Promise<HandlerInfo[]>
+  getHandlers(): Map<string, HandlerInfo>
+  getScheduleHandlers(): HandlerInfo[]
+}
+```
+
+### HandlerInfo
+
+```typescript
+interface HandlerInfo {
+  event: string      // Event name (e.g., 'issue.created')
+  path: string       // Full path to handler file
+  filename: string   // Filename (e.g., 'on.issue.created.ts')
+  cron?: string      // Cron expression (for schedule handlers)
+}
+```
+
+### File Patterns
+
+The scanner recognizes:
+
+| Pattern | Event |
+|---------|-------|
+| `on.issue.created.ts` | `issue.created` |
+| `on.issue.updated.ts` | `issue.updated` |
+| `on.issue.closed.ts` | `issue.closed` |
+| `on.*.ts` | `*` (any event) |
+| `every.hour.ts` | `schedule.hourly` |
+| `every.day.ts` | `schedule.daily` |
+| `every.week.ts` | `schedule.weekly` |
+
+Both `.ts` and `.js` extensions are supported.
+
+## Runtime
+
+Executes handlers with proper context and error handling.
+
+### Creating a Runtime
+
+```typescript
+import { createRuntime } from 'beads-workflows'
+
+const runtime = createRuntime('.beads')
+```
+
+### Executing Handlers
+
+```typescript
+const handler = await import('./.beads/on.issue.created.ts')
+
+const result = await runtime.execute('issue.created', handler.default, {
+  issue: createdIssue,
+  previousIssue: undefined,
+})
+
+console.log(result.success)   // boolean
+console.log(result.duration)  // number (ms)
+console.log(result.error)     // string | undefined
+```
+
+### Runtime Interface
+
+```typescript
+interface Runtime {
+  execute(
+    event: string,
+    handler: HandlerFn,
+    data: EventData
+  ): Promise<ExecutionResult>
+}
+```
+
+### ExecutionResult
+
+```typescript
+interface ExecutionResult {
+  success: boolean
+  duration: number
+  error?: string
+}
+```
+
+## Diff
+
+Compares issue states between commits.
+
+### Usage
+
+```typescript
+import { diff } from 'beads-workflows'
+
+const changes = await diff({
+  before: previousJsonlContent,
+  after: currentJsonlContent,
+})
+
+console.log(changes.created)  // Issue[]
+console.log(changes.updated)  // UpdatedIssue[]
+console.log(changes.closed)   // Issue[]
+```
+
+### DiffResult
+
+```typescript
+interface DiffResult {
+  created: Issue[]
+  updated: UpdatedIssue[]
+  closed: Issue[]
+}
+
+interface UpdatedIssue {
+  before: Issue
+  after: Issue
+}
+```
