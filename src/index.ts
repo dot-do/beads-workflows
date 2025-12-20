@@ -56,3 +56,23 @@ export type { EpicsApi, EpicProgress, EpicFilter } from './epics'
 // Beads factory
 export { Beads, autoDetectBeads } from './beads'
 export type { BeadsOptions, BeadsInstance } from './beads'
+
+// JSX Components (render to markdown for agents.mdx)
+export {
+  Issue as IssueComponent,
+  Issues as IssuesComponent,
+  Epic as EpicComponent,
+  Epics as EpicsComponent,
+  Stats,
+} from './components/index.js'
+export type {
+  IssueProps,
+  IssuesReadyProps,
+  IssuesBlockedProps,
+  IssuesListProps,
+  EpicProps,
+  EpicsProps,
+  EpicProgressProps,
+  EpicChildrenProps,
+  StatsProps,
+} from './components/index.js'
