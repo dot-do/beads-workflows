@@ -45,7 +45,8 @@
   "author": "dot-do",
   "license": "MIT",
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "yaml": "^2.8.2"
   },
   "peerDependencies": {
     "typescript": "^5"

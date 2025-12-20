@@ -73,6 +73,18 @@ export type { InitOptions, InitResult } from './init'
 export { createRuntime } from './runtime'
 export type { Runtime, HandlerContext, HandlerGlobals, HandlerFn, ExecutionResult, EventData } from './runtime'
 
+// Workflows
+export { Workflows } from './workflows'
+export type { WorkflowsApi, WorkflowRecord, IssueWorkflowRecord, ScheduleWorkflowRecord, RecordInput, ListFilter, RetryInfo } from './workflows'
+
+// Diff
+export { diff } from './diff'
+export type { DiffInput, DiffResult, UpdatedIssue } from './diff'
+
+// Schedule
+export { every, getScheduledHandlers, clearScheduledHandlers, CRON_PRESETS, getCronName, getCronExpression } from './schedule'
+export type { ScheduleContext, ScheduleHandler, RegisteredHandler } from './schedule'
+
 // JSX Components (render to markdown for agents.mdx)
 export {
   Issue as IssueComponent,

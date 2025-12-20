@@ -1,7 +1,7 @@
 import { describe, expect, test, beforeEach, afterEach } from 'bun:test'
-import { mkdir, writeFile, rm, appendFile } from 'fs/promises'
+import { mkdir, writeFile, rm, appendFile, readFile } from 'fs/promises'
 import { join } from 'path'
-import { createDaemon, parseArgs, type Daemon, type DaemonOptions } from '../src/cli'
+import { createDaemon, parseArgs, parseCommand, type Daemon, type DaemonOptions, type Command } from '../src/cli'
 
 const TEST_DIR = '/tmp/beads-cli-test'
 const BEADS_DIR = join(TEST_DIR, '.beads')
@@ -145,6 +145,77 @@ describe('cli', () => {
       // Should not throw
       await daemon.start()
       await daemon.stop()
+    })
+  })
+
+  describe('parseCommand', () => {
+    test('parses run command (default)', () => {
+      const cmd = parseCommand([])
+      expect(cmd.command).toBe('run')
+    })
+
+    test('parses run --once', () => {
+      const cmd = parseCommand(['run', '--once'])
+      expect(cmd.command).toBe('run')
+      expect(cmd.once).toBe(true)
+    })
+
+    test('parses list command', () => {
+      const cmd = parseCommand(['list'])
+      expect(cmd.command).toBe('list')
+    })
+
+    test('parses list --failed', () => {
+      const cmd = parseCommand(['list', '--failed'])
+      expect(cmd.command).toBe('list')
+      expect(cmd.failed).toBe(true)
+    })
+
+    test('parses list --issue', () => {
+      const cmd = parseCommand(['list', '--issue', 'bw-123'])
+      expect(cmd.command).toBe('list')
+      expect(cmd.issue).toBe('bw-123')
+    })
+
+    test('parses retry command with issue and event', () => {
+      const cmd = parseCommand(['retry', 'bw-123', 'closed'])
+      expect(cmd.command).toBe('retry')
+      expect(cmd.issue).toBe('bw-123')
+      expect(cmd.event).toBe('closed')
+    })
+
+    test('parses retry --all-failed', () => {
+      const cmd = parseCommand(['retry', '--all-failed'])
+      expect(cmd.command).toBe('retry')
+      expect(cmd.allFailed).toBe(true)
+    })
+  })
+
+  describe('--once mode', () => {
+    test('runs once and exits', async () => {
+      await writeFile(
+        join(BEADS_DIR, 'on.issue.created.ts'),
+        'export default (ctx) => console.log(ctx.issue)'
+      )
+
+      const daemon = createDaemon({ path: BEADS_DIR, once: true })
+
+      // Add an issue before starting
+      const issue = {
+        id: 'test-1',
+        title: 'Test',
+        status: 'open',
+        priority: 2,
+        issue_type: 'task',
+        created_at: '2025-01-01T10:00:00Z',
+        updated_at: '2025-01-01T10:00:00Z',
+      }
+      await writeFile(JSONL_PATH, JSON.stringify(issue) + '\n')
+
+      await daemon.start()
+
+      // In once mode, should automatically stop after processing
+      expect(daemon.isRunning()).toBe(false)
     })
   })
 })

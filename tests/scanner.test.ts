@@ -174,4 +174,88 @@ describe('scanner', () => {
       expect(handlers[0].event).toBe('issue.status.changed')
     })
   })
+
+  describe('schedule handlers (every.*.ts)', () => {
+    test('finds every.hour.ts handler', async () => {
+      await writeFile(
+        join(BEADS_DIR, 'every.hour.ts'),
+        'export default () => {}'
+      )
+
+      const scanner = createScanner(BEADS_DIR)
+      const handlers = await scanner.scan()
+
+      expect(handlers.length).toBe(1)
+      expect(handlers[0].event).toBe('schedule.hourly')
+      expect(handlers[0].cron).toBe('0 * * * *')
+    })
+
+    test('finds every.day.ts handler', async () => {
+      await writeFile(
+        join(BEADS_DIR, 'every.day.ts'),
+        'export default () => {}'
+      )
+
+      const scanner = createScanner(BEADS_DIR)
+      const handlers = await scanner.scan()
+
+      expect(handlers.length).toBe(1)
+      expect(handlers[0].event).toBe('schedule.daily')
+      expect(handlers[0].cron).toBe('0 0 * * *')
+    })
+
+    test('finds every.week.ts handler', async () => {
+      await writeFile(
+        join(BEADS_DIR, 'every.week.ts'),
+        'export default () => {}'
+      )
+
+      const scanner = createScanner(BEADS_DIR)
+      const handlers = await scanner.scan()
+
+      expect(handlers.length).toBe(1)
+      expect(handlers[0].event).toBe('schedule.weekly')
+      expect(handlers[0].cron).toBe('0 0 * * 0')
+    })
+
+    test('finds both event and schedule handlers', async () => {
+      await writeFile(
+        join(BEADS_DIR, 'on.issue.created.ts'),
+        'export default () => {}'
+      )
+      await writeFile(
+        join(BEADS_DIR, 'every.hour.ts'),
+        'export default () => {}'
+      )
+
+      const scanner = createScanner(BEADS_DIR)
+      const handlers = await scanner.scan()
+
+      expect(handlers.length).toBe(2)
+      expect(handlers.some(h => h.event === 'issue.created')).toBe(true)
+      expect(handlers.some(h => h.event === 'schedule.hourly')).toBe(true)
+    })
+
+    test('getScheduleHandlers returns only schedule handlers', async () => {
+      await writeFile(
+        join(BEADS_DIR, 'on.issue.created.ts'),
+        'export default () => {}'
+      )
+      await writeFile(
+        join(BEADS_DIR, 'every.hour.ts'),
+        'export default () => {}'
+      )
+      await writeFile(
+        join(BEADS_DIR, 'every.day.ts'),
+        'export default () => {}'
+      )
+
+      const scanner = createScanner(BEADS_DIR)
+      await scanner.scan()
+      const scheduleHandlers = scanner.getScheduleHandlers()
+
+      expect(scheduleHandlers.length).toBe(2)
+      expect(scheduleHandlers.every(h => h.cron !== undefined)).toBe(true)
+    })
+  })
 })

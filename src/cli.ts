@@ -6,6 +6,7 @@
 import { createWatcher, type WatcherEvent } from './watcher'
 import { createScanner, type HandlerInfo } from './scanner'
 import { createRuntime, type HandlerFn } from './runtime'
+import { Workflows } from './workflows'
 import type { Issue } from './types'
 
 /**
@@ -14,6 +15,7 @@ import type { Issue } from './types'
 export interface DaemonOptions {
   path: string
   verbose?: boolean
+  once?: boolean
   onHandlerExecuted?: (event: string, result: { success: boolean }) => void
 }
 
@@ -25,6 +27,72 @@ export interface Daemon {
   stop(): Promise<void>
   isRunning(): boolean
   getHandlerCount(): number
+}
+
+/**
+ * Parsed command
+ */
+export interface Command {
+  command: 'run' | 'list' | 'retry'
+  once?: boolean
+  failed?: boolean
+  issue?: string
+  event?: string
+  allFailed?: boolean
+}
+
+/**
+ * Parse command from arguments
+ */
+export function parseCommand(args: string[]): Command {
+  const cmd: Command = { command: 'run' }
+
+  if (args.length === 0) {
+    return cmd
+  }
+
+  const firstArg = args[0]
+
+  if (firstArg === 'list') {
+    cmd.command = 'list'
+    for (let i = 1; i < args.length; i++) {
+      if (args[i] === '--failed') {
+        cmd.failed = true
+      } else if (args[i] === '--issue') {
+        cmd.issue = args[++i]
+      }
+    }
+  } else if (firstArg === 'retry') {
+    cmd.command = 'retry'
+    for (let i = 1; i < args.length; i++) {
+      if (args[i] === '--all-failed') {
+        cmd.allFailed = true
+      } else if (!args[i].startsWith('-')) {
+        if (!cmd.issue) {
+          cmd.issue = args[i]
+        } else if (!cmd.event) {
+          cmd.event = args[i]
+        }
+      }
+    }
+  } else if (firstArg === 'run' || !firstArg.startsWith('-')) {
+    cmd.command = 'run'
+    const startIdx = firstArg === 'run' ? 1 : 0
+    for (let i = startIdx; i < args.length; i++) {
+      if (args[i] === '--once') {
+        cmd.once = true
+      }
+    }
+  } else {
+    // Handle flags for default run command
+    for (let i = 0; i < args.length; i++) {
+      if (args[i] === '--once') {
+        cmd.once = true
+      }
+    }
+  }
+
+  return cmd
 }
 
 /**
@@ -50,7 +118,7 @@ export function parseArgs(args: string[]): { path?: string; verbose: boolean } {
  * Create a workflow daemon
  */
 export function createDaemon(options: DaemonOptions): Daemon {
-  const { path: beadsDir, verbose, onHandlerExecuted } = options
+  const { path: beadsDir, verbose, once, onHandlerExecuted } = options
 
   let running = false
   let handlers: Map<string, HandlerInfo> = new Map()
@@ -115,6 +183,14 @@ export function createDaemon(options: DaemonOptions): Daemon {
       if (running) return
 
       await loadHandlers()
+
+      if (once) {
+        // In once mode, just process current state and exit
+        // No need to start watcher
+        running = false
+        return
+      }
+
       await watcher.start()
       running = true
 
@@ -150,16 +226,68 @@ export function createDaemon(options: DaemonOptions): Daemon {
  */
 export async function main(args: string[] = process.argv.slice(2)): Promise<void> {
   const options = parseArgs(args)
+  const command = parseCommand(args)
 
   const beadsDir = options.path || process.cwd() + '/.beads'
 
+  if (command.command === 'list') {
+    const workflows = Workflows(beadsDir)
+    const records = command.failed
+      ? await workflows.listFailed()
+      : await workflows.list(command.issue ? { issue: command.issue } : undefined)
+
+    if (records.length === 0) {
+      console.log('No workflow executions found.')
+    } else {
+      for (const record of records) {
+        const status = record.status === 'success' ? '✓' : '✗'
+        if (record.type === 'issue') {
+          console.log(`${status} ${record.triggered_at} ${record.issue} ${record.event} (${record.handler})`)
+        } else if (record.type === 'schedule') {
+          console.log(`${status} ${record.triggered_at} schedule ${record.cron} (${record.handler})`)
+        }
+      }
+    }
+    return
+  }
+
+  if (command.command === 'retry') {
+    const workflows = Workflows(beadsDir)
+
+    if (command.allFailed) {
+      const failed = await workflows.listFailed()
+      console.log(`Found ${failed.length} failed executions to retry.`)
+      // TODO: implement actual retry logic
+    } else if (command.issue && command.event) {
+      const retryInfo = await workflows.retry(command.issue, command.event)
+      if (retryInfo) {
+        console.log(`Retrying ${retryInfo.issue} ${retryInfo.event}...`)
+        // TODO: implement actual retry logic
+      } else {
+        console.log(`No failed execution found for ${command.issue} ${command.event}`)
+      }
+    } else {
+      console.log('Usage: beads-workflows retry <issue> <event>')
+      console.log('       beads-workflows retry --all-failed')
+    }
+    return
+  }
+
+  // Default: run command
   console.log('beads-workflows daemon')
   console.log(`Watching: ${beadsDir}`)
 
   const daemon = createDaemon({
     path: beadsDir,
     verbose: options.verbose,
+    once: command.once,
   })
+
+  if (command.once) {
+    await daemon.start()
+    console.log('Single pass complete.')
+    return
+  }
 
   // Handle graceful shutdown
   process.on('SIGINT', async () => {
