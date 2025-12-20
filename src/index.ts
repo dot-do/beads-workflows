@@ -1,7 +1,7 @@
 /**
  * beads-workflows
  *
- * Workflow engine + TypeScript SDK + JSX components for beads issue tracker
+ * Workflow engine + TypeScript SDK for beads issue tracker
  */
 
 // Types
@@ -14,7 +14,7 @@ export type {
   Changes,
   IssueEvent,
   BeadsConfig,
-} from './types.js'
+} from './types'
 
 export {
   isValidStatus,
@@ -22,22 +22,37 @@ export {
   isValidPriority,
   isIssue,
   isEpic,
-} from './types.js'
+} from './types'
 
 // Reader
-export { readIssuesFromJsonl, findBeadsDir, parseJsonlLine } from './reader.js'
-export type { JsonlIssue } from './reader.js'
+export { readIssuesFromJsonl, findBeadsDir, parseJsonlLine } from './reader'
+export type { JsonlIssue } from './reader'
 
 // Writer
-export { writeIssue, closeIssue, updateIssue, createIssue, runBd } from './writer.js'
+export {
+  buildCreateCommand,
+  buildUpdateCommand,
+  buildCloseCommand,
+  parseJsonOutput,
+  execBd,
+  createIssue,
+  updateIssue,
+  closeIssue,
+} from './writer'
+export type { CreateOptions, UpdateOptions, CommandResult } from './writer'
 
-// JSX Components (render to markdown)
-export { Issues, Epic, Stats } from './components/index.js'
-export type {
-  IssuesReadyProps,
-  IssuesBlockedProps,
-  IssuesListProps,
-  EpicProgressProps,
-  EpicChildrenProps,
-  StatsProps,
-} from './components/index.js'
+// Hooks
+export { createHooks } from './hooks'
+export type { Hooks } from './hooks'
+
+// Issues API
+export { createIssuesApi } from './issues'
+export type { IssuesApi, ListFilter } from './issues'
+
+// Epics API
+export { createEpicsApi } from './epics'
+export type { EpicsApi, EpicProgress, EpicFilter } from './epics'
+
+// Beads factory
+export { Beads, autoDetectBeads } from './beads'
+export type { BeadsOptions, BeadsInstance } from './beads'

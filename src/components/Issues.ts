@@ -5,6 +5,10 @@
 import { readIssuesFromJsonl, findBeadsDir } from '../reader.js'
 import type { Issue, IssueStatus, IssueType, Priority } from '../types.js'
 
+export interface IssueProps {
+  id: string
+}
+
 export interface IssuesReadyProps {
   limit?: number
   priority?: string
@@ -207,11 +211,54 @@ async function List(props: IssuesListProps = {}): Promise<string> {
   return renderTable(issues, title)
 }
 
+/**
+ * Single issue by ID
+ */
+export async function Issue(props: IssueProps): Promise<string> {
+  const { id } = props
+
+  const allIssues = await loadIssues()
+  const issue = allIssues.find(i => i.id === id)
+
+  if (!issue) {
+    return `> Issue \`${id}\` not found\n`
+  }
+
+  const lines: string[] = [
+    `### ${issue.title}`,
+    '',
+    `**ID:** \`${issue.id}\` · **Status:** ${issue.status} · **Priority:** P${issue.priority} · **Type:** ${issue.type}`,
+    '',
+  ]
+
+  if (issue.description) {
+    lines.push(issue.description)
+    lines.push('')
+  }
+
+  if (issue.assignee) {
+    lines.push(`**Assignee:** ${issue.assignee}`)
+  }
+
+  if (issue.dependsOn.length > 0) {
+    const deps = issue.dependsOn.map(d => `\`${d}\``).join(', ')
+    lines.push(`**Depends on:** ${deps}`)
+  }
+
+  if (issue.blocks.length > 0) {
+    const blocks = issue.blocks.map(b => `\`${b}\``).join(', ')
+    lines.push(`**Blocks:** ${blocks}`)
+  }
+
+  lines.push('')
+  return lines.join('\n')
+}
+
 // Default Issues function (was List)
 export async function Issues(props: IssuesListProps = {}): Promise<string> {
   return List(props)
 }
 
-// Attach Ready and Blocked as properties
+// Attach sub-components as properties
 Issues.Ready = Ready
 Issues.Blocked = Blocked
