@@ -79,10 +79,11 @@ Components that render beads data as markdown. Use with [agents.mdx](https://git
 import { Issues, Epic, Stats } from 'beads-workflows'
 
 // In AGENTS.mdx or programmatically:
-const ready = await Issues.Ready({ limit: 10, priority: 'P0,P1' })
-const blocked = await Issues.Blocked()
-const progress = await Epic.Progress({ id: 'proj-100' })
-const stats = await Stats({ detailed: true })
+const all = await Issues({ status: 'open' })        // <Issues />
+const ready = await Issues.Ready({ limit: 10 })     // <Issues.Ready />
+const blocked = await Issues.Blocked()              // <Issues.Blocked />
+const progress = await Epic.Progress()              // <Epic.Progress />
+const stats = await Stats({ detailed: true })       // <Stats />
 ```
 
 ### `<Issues.Ready />`
@@ -113,7 +114,7 @@ Show blocked issues with their blockers.
 |:-----|:-----|:--------|:------------|
 | `limit` | number | 10 | Max issues to show |
 
-### `<Issues.List />`
+### `<Issues />`
 
 List issues with filters.
 

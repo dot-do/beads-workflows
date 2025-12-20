@@ -207,8 +207,11 @@ async function List(props: IssuesListProps = {}): Promise<string> {
   return renderTable(issues, title)
 }
 
-export const Issues = {
-  Ready,
-  Blocked,
-  List,
+// Default Issues function (was List)
+export async function Issues(props: IssuesListProps = {}): Promise<string> {
+  return List(props)
 }
+
+// Attach Ready and Blocked as properties
+Issues.Ready = Ready
+Issues.Blocked = Blocked
