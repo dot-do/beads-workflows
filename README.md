@@ -4,6 +4,7 @@ Workflow engine + TypeScript SDK for the [beads](https://github.com/beads-org/be
 
 ## Features
 
+- **JSX Components** - Render issues as markdown tables for [agents.mdx](https://github.com/dot-do/agents.mdx)
 - **Zero-import handlers** - Write workflow scripts with globals, no boilerplate
 - **Convention-based** - Drop `.ts` files in `.beads/` to define workflows
 - **TypeScript SDK** - Programmatic access to issues, epics, and events
@@ -69,6 +70,107 @@ log(`Completed ${children.length} tasks`)
 
 notify(`Epic "${epic.title}" is done!`)
 ```
+
+## JSX Components
+
+Components that render beads data as markdown. Use with [agents.mdx](https://github.com/dot-do/agents.mdx) for dynamic agent context.
+
+```typescript
+import { Issues, Epic, Stats } from 'beads-workflows'
+
+// In AGENTS.mdx or programmatically:
+const ready = await Issues.Ready({ limit: 10, priority: 'P0,P1' })
+const blocked = await Issues.Blocked()
+const progress = await Epic.Progress({ id: 'proj-100' })
+const stats = await Stats({ detailed: true })
+```
+
+### `<Issues.Ready />`
+
+Show issues ready to work (no open blockers).
+
+| Prop | Type | Default | Description |
+|:-----|:-----|:--------|:------------|
+| `limit` | number | 10 | Max issues to show |
+| `priority` | string | - | Filter by priority (e.g., "P0,P1") |
+| `assignee` | string | - | Filter by assignee |
+
+**Output:**
+
+```markdown
+### Ready to Work
+
+| ID | Priority | Type | Title | Updated |
+|:---|:---------|:-----|:------|:--------|
+| `proj-123` | P1 | task | Implement user auth | 2d ago |
+```
+
+### `<Issues.Blocked />`
+
+Show blocked issues with their blockers.
+
+| Prop | Type | Default | Description |
+|:-----|:-----|:--------|:------------|
+| `limit` | number | 10 | Max issues to show |
+
+### `<Issues.List />`
+
+List issues with filters.
+
+| Prop | Type | Default | Description |
+|:-----|:-----|:--------|:------------|
+| `status` | string | "open" | Filter: open, in_progress, closed, all |
+| `type` | string | - | Filter: task, bug, feature, epic |
+| `priority` | string | - | Filter by priority |
+| `assignee` | string | - | Filter by assignee |
+| `limit` | number | 20 | Max issues to show |
+
+### `<Epic.Progress />`
+
+Show epic completion progress.
+
+| Prop | Type | Default | Description |
+|:-----|:-----|:--------|:------------|
+| `id` | string | - | Specific epic ID |
+| `all` | boolean | false | Show all epics (including closed) |
+
+**Output:**
+
+```markdown
+### Epic Progress
+
+**User Authentication** (`proj-100`)
+[████████░░░░░░░░░░░░] 8/20 (40%)
+```
+
+### `<Epic.Children />`
+
+List children of an epic.
+
+| Prop | Type | Default | Description |
+|:-----|:-----|:--------|:------------|
+| `id` | string | required | Epic ID |
+| `limit` | number | 20 | Max children to show |
+
+### `<Stats />`
+
+Project statistics summary.
+
+| Prop | Type | Default | Description |
+|:-----|:-----|:--------|:------------|
+| `detailed` | boolean | false | Show priority/type breakdown |
+
+**Output:**
+
+```markdown
+### Project Stats
+
+**15 open** · 3 in progress · 42 closed · 60 total
+
+**Ready:** 12 · **Blocked:** 3
+```
+
+---
 
 ## TypeScript SDK
 

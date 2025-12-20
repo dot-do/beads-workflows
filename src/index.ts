@@ -14,7 +14,7 @@ export type {
   Changes,
   IssueEvent,
   BeadsConfig,
-} from './types'
+} from './types.js'
 
 export {
   isValidStatus,
@@ -22,17 +22,17 @@ export {
   isValidPriority,
   isIssue,
   isEpic,
-} from './types'
+} from './types.js'
 
 // Reader
-export { readIssuesFromJsonl, findBeadsDir, parseJsonlLine } from './reader'
-export type { JsonlIssue } from './reader'
+export { readIssuesFromJsonl, findBeadsDir, parseJsonlLine } from './reader.js'
+export type { JsonlIssue } from './reader.js'
 
 // Writer
-export { writeIssue, closeIssue, updateIssue, createIssue, runBd } from './writer'
+export { writeIssue, closeIssue, updateIssue, createIssue, runBd } from './writer.js'
 
 // JSX Components (render to markdown)
-export { Issues, Epic, Stats } from './components'
+export { Issues, Epic, Stats } from './components/index.js'
 export type {
   IssuesReadyProps,
   IssuesBlockedProps,
@@ -40,4 +40,4 @@ export type {
   EpicProgressProps,
   EpicChildrenProps,
   StatsProps,
-} from './components'
+} from './components/index.js'
