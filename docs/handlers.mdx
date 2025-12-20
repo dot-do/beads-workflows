@@ -1,0 +1,186 @@
+---
+title: Event Handlers
+description: Convention-based handlers for issue events
+---
+
+# Event Handlers
+
+Create TypeScript files in `.beads/` that automatically execute when issues change.
+
+## File Naming Convention
+
+Handlers use the pattern `on.<entity>.<event>.ts`:
+
+| File | Triggers When |
+|------|---------------|
+| `on.issue.created.ts` | New issue created |
+| `on.issue.updated.ts` | Issue modified |
+| `on.issue.closed.ts` | Issue closed |
+| `on.issue.ready.ts` | Issue becomes unblocked |
+| `on.issue.blocked.ts` | Issue becomes blocked |
+| `on.epic.completed.ts` | All epic children closed |
+| `on.dep.added.ts` | Dependency added |
+| `on.dep.removed.ts` | Dependency removed |
+
+## Handler Structure
+
+```typescript
+// .beads/on.issue.created.ts
+import type { Issue, BeadsInstance } from 'beads-workflows'
+
+interface HandlerContext {
+  issue: Issue              // The affected issue
+  previousIssue?: Issue     // Previous state (for updates)
+  beads: BeadsInstance      // Full API access
+}
+
+export default async (ctx: HandlerContext) => {
+  const { issue, beads } = ctx
+
+  console.log(`New issue: ${issue.title}`)
+
+  // Can create, update, or close other issues
+  await beads.issues.update(issue.id, {
+    labels: [...(issue.labels || []), 'needs-triage'],
+  })
+}
+```
+
+## Context Properties
+
+### issue
+
+The issue that triggered the event:
+
+```typescript
+export default async ({ issue }) => {
+  console.log(issue.id)       // 'bw-123'
+  console.log(issue.title)    // 'Fix login bug'
+  console.log(issue.status)   // 'open'
+  console.log(issue.priority) // 2
+}
+```
+
+### previousIssue
+
+For update events, the issue state before the change:
+
+```typescript
+// .beads/on.issue.updated.ts
+export default async ({ issue, previousIssue }) => {
+  if (previousIssue?.status !== issue.status) {
+    console.log(`Status changed: ${previousIssue?.status} → ${issue.status}`)
+  }
+
+  if (previousIssue?.priority !== issue.priority) {
+    console.log(`Priority changed: ${previousIssue?.priority} → ${issue.priority}`)
+  }
+}
+```
+
+### beads
+
+Full API access to read and write issues/epics:
+
+```typescript
+export default async ({ issue, beads }) => {
+  // Read other issues
+  const related = await beads.issues.list({
+    labels: issue.labels?.[0],
+  })
+
+  // Create follow-up
+  await beads.issues.create({
+    title: `Review: ${issue.title}`,
+    dependsOn: [issue.id],
+  })
+
+  // Check epic progress
+  for (const epicId of issue.blocks) {
+    const progress = await beads.epics.progress(epicId)
+    console.log(`Epic ${epicId}: ${progress.percentage}% complete`)
+  }
+}
+```
+
+## Example Handlers
+
+### Auto-assign by label
+
+```typescript
+// .beads/on.issue.created.ts
+const LABEL_OWNERS: Record<string, string> = {
+  'auth': 'security-team',
+  'ui': 'frontend-team',
+  'api': 'backend-team',
+}
+
+export default async ({ issue, beads }) => {
+  if (issue.assignee) return // Already assigned
+
+  for (const label of issue.labels || []) {
+    const owner = LABEL_OWNERS[label]
+    if (owner) {
+      await beads.issues.update(issue.id, { assignee: owner })
+      break
+    }
+  }
+}
+```
+
+### Auto-close epic
+
+```typescript
+// .beads/on.issue.closed.ts
+export default async ({ issue, beads }) => {
+  for (const epicId of issue.blocks) {
+    const progress = await beads.epics.progress(epicId)
+
+    if (progress.percentage === 100) {
+      await beads.issues.close(epicId, {
+        reason: 'All child issues completed',
+      })
+    }
+  }
+}
+```
+
+### Notify on high priority
+
+```typescript
+// .beads/on.issue.created.ts
+export default async ({ issue }) => {
+  if (issue.priority <= 1) {
+    // P0 or P1 - critical/high priority
+    console.log(`🚨 High priority issue: ${issue.title}`)
+    // Could integrate with Slack, email, etc.
+  }
+}
+```
+
+### Cascade status changes
+
+```typescript
+// .beads/on.issue.updated.ts
+export default async ({ issue, previousIssue, beads }) => {
+  // When issue starts, start its epic too
+  if (previousIssue?.status === 'open' && issue.status === 'in_progress') {
+    for (const epicId of issue.blocks) {
+      const epic = await beads.issues.get(epicId)
+      if (epic?.status === 'open') {
+        await beads.issues.update(epicId, { status: 'in_progress' })
+      }
+    }
+  }
+}
+```
+
+## Handler Execution
+
+Handlers execute:
+
+1. **Daemon mode**: Immediately when `issues.jsonl` changes
+2. **GitHub Action**: On push to main, comparing before/after states
+3. **CLI `--once`**: Single pass through pending events
+
+Execution is tracked in `workflows.jsonl` for idempotency and retry.

@@ -1,0 +1,246 @@
+---
+title: JSX Components
+description: Render issues and epics as markdown for AI agents
+---
+
+# JSX Components
+
+Render issues and epics as markdown strings for AI agent context.
+
+## Overview
+
+The components render beads data as structured markdown, useful for:
+- Agent context files (AGENTS.md)
+- LLM prompts
+- Reports and summaries
+
+## Usage
+
+```typescript
+import {
+  IssueComponent as Issue,
+  IssuesComponent as Issues,
+  EpicComponent as Epic,
+  EpicsComponent as Epics,
+  Stats,
+} from 'beads-workflows'
+```
+
+## Issue Component
+
+Render a single issue:
+
+```tsx
+const issue = await beads.issues.get('bw-123')
+
+const markdown = <Issue issue={issue} />
+```
+
+Output:
+```markdown
+## bw-123: Fix login button
+
+**Status:** open | **Priority:** P2 | **Type:** bug
+
+Login button doesn't respond on mobile devices.
+
+**Dependencies:** bw-100, bw-101
+**Blocks:** bw-200
+```
+
+### Props
+
+```typescript
+interface IssueProps {
+  issue: Issue
+  showDependencies?: boolean  // Show deps/blocks (default: true)
+  showDescription?: boolean   // Show description (default: true)
+}
+```
+
+## Issues Component
+
+Render multiple issues with different views:
+
+### Ready Issues
+
+```tsx
+const ready = await beads.issues.ready()
+
+const markdown = <Issues ready issues={ready} />
+```
+
+Output:
+```markdown
+# Ready Issues (3)
+
+Issues with no blockers, ready to work.
+
+## bw-123: Implement auth
+**Priority:** P1 | **Type:** feature
+
+## bw-124: Fix header
+**Priority:** P2 | **Type:** bug
+
+## bw-125: Update docs
+**Priority:** P3 | **Type:** task
+```
+
+### Blocked Issues
+
+```tsx
+const blocked = await beads.issues.blocked()
+
+const markdown = <Issues blocked issues={blocked} />
+```
+
+### List View
+
+```tsx
+const all = await beads.issues.list()
+
+const markdown = <Issues list issues={all} />
+```
+
+### Props
+
+```typescript
+interface IssuesReadyProps {
+  ready: true
+  issues: Issue[]
+}
+
+interface IssuesBlockedProps {
+  blocked: true
+  issues: Issue[]
+}
+
+interface IssuesListProps {
+  list: true
+  issues: Issue[]
+  filter?: ListFilter
+}
+```
+
+## Epic Component
+
+Render an epic with progress:
+
+```tsx
+const epic = await beads.epics.get('bw-epic-1')
+const progress = await beads.epics.progress('bw-epic-1')
+
+const markdown = <Epic epic={epic} progress={progress} />
+```
+
+Output:
+```markdown
+## bw-epic-1: User Authentication [60%]
+
+**Status:** in_progress | **Priority:** P1
+
+Complete authentication system.
+
+Progress: ██████░░░░ 6/10 (4 remaining, 1 blocked)
+```
+
+### With Children
+
+```tsx
+const children = await beads.epics.children('bw-epic-1')
+
+const markdown = (
+  <Epic epic={epic} progress={progress}>
+    {children.map(child => <Issue issue={child} />)}
+  </Epic>
+)
+```
+
+### Props
+
+```typescript
+interface EpicProps {
+  epic: Epic
+  progress?: EpicProgress
+  children?: ReactNode
+}
+```
+
+## Epics Component
+
+Render all epics:
+
+```tsx
+const epics = await beads.epics.list()
+
+const markdown = <Epics epics={epics} />
+```
+
+### Props
+
+```typescript
+interface EpicsProps {
+  epics: Epic[]
+  showProgress?: boolean  // Fetch and show progress (default: true)
+}
+```
+
+## Stats Component
+
+Render project statistics:
+
+```tsx
+const issues = await beads.issues.list()
+const epics = await beads.epics.list()
+
+const markdown = <Stats issues={issues} epics={epics} />
+```
+
+Output:
+```markdown
+# Project Stats
+
+| Metric | Count |
+|--------|-------|
+| Total Issues | 45 |
+| Open | 12 |
+| In Progress | 8 |
+| Closed | 25 |
+| Blocked | 3 |
+| Epics | 5 |
+```
+
+### Props
+
+```typescript
+interface StatsProps {
+  issues: Issue[]
+  epics?: Epic[]
+}
+```
+
+## Agent Context Example
+
+Generate context for AI agents:
+
+```typescript
+// scripts/generate-context.ts
+import { Beads, IssuesComponent, EpicsComponent, Stats } from 'beads-workflows'
+
+const beads = await Beads()
+const issues = await beads.issues.list()
+const epics = await beads.epics.list()
+const ready = await beads.issues.ready()
+
+const context = `
+# Beads Context
+
+${<Stats issues={issues} epics={epics} />}
+
+${<IssuesComponent ready issues={ready} />}
+
+${<EpicsComponent epics={epics} />}
+`
+
+await Bun.write('AGENTS.md', context)
+```

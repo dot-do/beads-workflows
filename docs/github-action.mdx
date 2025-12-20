@@ -1,0 +1,216 @@
+---
+title: GitHub Action
+description: Run workflows in GitHub Actions CI/CD
+---
+
+# GitHub Action
+
+Run beads-workflows in GitHub Actions for automated CI/CD integration.
+
+## Quick Setup
+
+Create `.github/workflows/beads-workflows.yml`:
+
+```yaml
+name: beads-workflows
+
+on:
+  push:
+    branches: [main]
+    paths: ['.beads/issues.jsonl']
+  schedule:
+    - cron: '0 * * * *'   # hourly
+    - cron: '0 0 * * *'   # daily
+    - cron: '0 0 * * 0'   # weekly
+  workflow_dispatch:
+    inputs:
+      retry_failed:
+        type: boolean
+        description: 'Retry all failed workflows'
+
+jobs:
+  run-workflows:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun add beads-workflows
+
+      - name: Get previous issues.jsonl
+        if: github.event_name == 'push'
+        run: |
+          git show HEAD~1:.beads/issues.jsonl > /tmp/before.jsonl 2>/dev/null || echo "" > /tmp/before.jsonl
+
+      - name: Run workflows
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ "${{ inputs.retry_failed }}" == "true" ]; then
+            bunx beads-workflows retry --all-failed
+          else
+            bunx beads-workflows run --once
+          fi
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .beads/workflows.jsonl
+          git diff --staged --quiet || git commit -m "chore: update workflows.jsonl"
+          git push
+```
+
+## Triggers
+
+### Push
+
+Runs when `issues.jsonl` changes on main:
+
+```yaml
+on:
+  push:
+    branches: [main]
+    paths: ['.beads/issues.jsonl']
+```
+
+The action compares `HEAD~1` with `HEAD` to detect:
+- Created issues
+- Updated issues
+- Closed issues
+
+### Schedule
+
+Runs on a cron schedule:
+
+```yaml
+on:
+  schedule:
+    - cron: '0 * * * *'   # Runs every.hour.ts
+    - cron: '0 0 * * *'   # Runs every.day.ts
+    - cron: '0 0 * * 0'   # Runs every.week.ts
+```
+
+The cron expression is passed to handlers via `github.event.schedule`.
+
+### Manual
+
+Trigger manually from GitHub UI:
+
+```yaml
+on:
+  workflow_dispatch:
+    inputs:
+      retry_failed:
+        type: boolean
+        description: 'Retry all failed workflows'
+```
+
+## Change Detection
+
+For push events, the action detects changes by comparing commits:
+
+```bash
+# Get previous state
+git show HEAD~1:.beads/issues.jsonl > /tmp/before.jsonl
+
+# Run with diff detection
+bunx beads-workflows run --once
+```
+
+The `diff()` function compares states and triggers appropriate handlers.
+
+## Execution Tracking
+
+All executions are logged to `workflows.jsonl`:
+
+```jsonl
+{"type":"issue","issue":"bw-123","event":"created","status":"success","handler":"on.issue.created.ts","triggered_at":"2025-01-01T10:00:00Z","duration":142,"commit":"abc123","trigger":"push"}
+```
+
+This file is committed and pushed, providing:
+- Audit trail
+- Idempotency (prevents duplicate runs)
+- Retry information
+
+## Failure Handling
+
+When a handler fails:
+
+1. Error is logged to `workflows.jsonl`
+2. Other handlers continue executing
+3. Failed handlers can be retried manually
+
+### Retry Failed
+
+From GitHub Actions UI:
+1. Go to Actions tab
+2. Select "beads-workflows"
+3. Click "Run workflow"
+4. Check "Retry all failed workflows"
+5. Click "Run workflow"
+
+Or via CLI:
+```bash
+beads-workflows retry --all-failed
+```
+
+## Handler Permissions
+
+Handlers have full access to:
+- Read/write issues and epics
+- Execute `bd` CLI commands
+- Access environment variables
+- Make network requests
+
+Changes made by handlers are committed along with `workflows.jsonl`.
+
+## Environment Variables
+
+Available in handlers:
+
+| Variable | Description |
+|----------|-------------|
+| `GITHUB_EVENT` | Trigger type (push, schedule, workflow_dispatch) |
+| `GITHUB_SCHEDULE` | Cron expression (for schedule triggers) |
+| `GITHUB_SHA` | Current commit SHA |
+| `GITHUB_REF` | Current ref (branch/tag) |
+
+## Tips
+
+### Prevent Infinite Loops
+
+If handlers modify `issues.jsonl`, add a condition:
+
+```yaml
+- name: Run workflows
+  if: github.actor != 'github-actions[bot]'
+  run: bunx beads-workflows run --once
+```
+
+### Custom Schedules
+
+Add more cron triggers for custom `every()` handlers:
+
+```yaml
+on:
+  schedule:
+    - cron: '0 * * * *'     # hourly
+    - cron: '*/15 * * * *'  # every 15 min
+    - cron: '0 9 * * 1-5'   # 9am weekdays
+```
+
+### Secrets
+
+Pass secrets to handlers:
+
+```yaml
+- name: Run workflows
+  run: bunx beads-workflows run --once
+  env:
+    SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+```

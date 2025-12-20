@@ -1,326 +1,132 @@
 # beads-workflows
 
-Workflow engine + TypeScript SDK for the [beads](https://github.com/beads-org/beads) issue tracker.
+Workflow engine + TypeScript SDK for the [beads](https://github.com/beads-ai/beads) issue tracker.
 
-## Features
-
-- **JSX Components** - Render issues as markdown tables for [agents.mdx](https://github.com/dot-do/agents.mdx)
-- **Zero-import handlers** - Write workflow scripts with globals, no boilerplate
-- **Convention-based** - Drop `.ts` files in `.beads/` to define workflows
-- **TypeScript SDK** - Programmatic access to issues, epics, and events
-- **Hybrid I/O** - Fast reads from JSONL/SQLite, safe writes via `bd` CLI
-- **Background daemon** - Watches for changes, executes handlers automatically
-
-## Quick Start
+## Installation
 
 ```bash
-# Install
-npm install beads-workflows
-
-# Initialize in a beads project
-npx beads-workflows init
-
-# Start the workflow daemon
-npx beads-workflows
+bun add beads-workflows
 ```
 
-## Convention-Based Workflows
-
-Drop handler files in `.beads/` - they execute automatically when events fire:
-
-```
-.beads/
-├── issues.jsonl
-├── config.yaml
-├── global.d.ts              # Generated - provides types for handlers
-├── on.issue.ready.ts        # Runs when issue has no blockers
-├── on.issue.closed.ts       # Runs when issue is closed
-├── on.issue.created.ts      # Runs when issue is created
-└── on.epic.completed.ts     # Runs when all epic children close
-```
-
-### Example: `.beads/on.issue.ready.ts`
-
-```typescript
-// No imports needed - globals are injected
-console.log(`Ready to work: ${issue.id} - ${issue.title}`)
-
-if (issue.priority === 0) {
-  notify(`P0 issue ready: ${issue.title}`)
-}
-```
-
-### Example: `.beads/on.issue.closed.ts`
-
-```typescript
-// issue and changes are globals
-log(`Closed: ${issue.id}`)
-
-if (issue.type === 'bug') {
-  notify(`Bug fixed: ${issue.title}`)
-}
-```
-
-### Example: `.beads/on.epic.completed.ts`
-
-```typescript
-// epic and children are globals
-log(`Epic complete: ${epic.id}`)
-log(`Completed ${children.length} tasks`)
-
-notify(`Epic "${epic.title}" is done!`)
-```
-
-## JSX Components
-
-Components that render beads data as markdown. Use with [agents.mdx](https://github.com/dot-do/agents.mdx) for dynamic agent context.
-
-```typescript
-import { Issues, Epic, Stats } from 'beads-workflows'
-
-// In AGENTS.mdx or programmatically:
-const all = await Issues({ status: 'open' })        // <Issues />
-const ready = await Issues.Ready({ limit: 10 })     // <Issues.Ready />
-const blocked = await Issues.Blocked()              // <Issues.Blocked />
-const progress = await Epic.Progress()              // <Epic.Progress />
-const stats = await Stats({ detailed: true })       // <Stats />
-```
-
-### `<Issues.Ready />`
-
-Show issues ready to work (no open blockers).
-
-| Prop | Type | Default | Description |
-|:-----|:-----|:--------|:------------|
-| `limit` | number | 10 | Max issues to show |
-| `priority` | string | - | Filter by priority (e.g., "P0,P1") |
-| `assignee` | string | - | Filter by assignee |
-
-**Output:**
-
-```markdown
-### Ready to Work
-
-| ID | Priority | Type | Title | Updated |
-|:---|:---------|:-----|:------|:--------|
-| `proj-123` | P1 | task | Implement user auth | 2d ago |
-```
-
-### `<Issues.Blocked />`
-
-Show blocked issues with their blockers.
-
-| Prop | Type | Default | Description |
-|:-----|:-----|:--------|:------------|
-| `limit` | number | 10 | Max issues to show |
-
-### `<Issues />`
-
-List issues with filters.
-
-| Prop | Type | Default | Description |
-|:-----|:-----|:--------|:------------|
-| `status` | string | "open" | Filter: open, in_progress, closed, all |
-| `type` | string | - | Filter: task, bug, feature, epic |
-| `priority` | string | - | Filter by priority |
-| `assignee` | string | - | Filter by assignee |
-| `limit` | number | 20 | Max issues to show |
-
-### `<Epic.Progress />`
-
-Show epic completion progress.
-
-| Prop | Type | Default | Description |
-|:-----|:-----|:--------|:------------|
-| `id` | string | - | Specific epic ID |
-| `all` | boolean | false | Show all epics (including closed) |
-
-**Output:**
-
-```markdown
-### Epic Progress
-
-**User Authentication** (`proj-100`)
-[████████░░░░░░░░░░░░] 8/20 (40%)
-```
-
-### `<Epic.Children />`
-
-List children of an epic.
-
-| Prop | Type | Default | Description |
-|:-----|:-----|:--------|:------------|
-| `id` | string | required | Epic ID |
-| `limit` | number | 20 | Max children to show |
-
-### `<Stats />`
-
-Project statistics summary.
-
-| Prop | Type | Default | Description |
-|:-----|:-----|:--------|:------------|
-| `detailed` | boolean | false | Show priority/type breakdown |
-
-**Output:**
-
-```markdown
-### Project Stats
-
-**15 open** · 3 in progress · 42 closed · 60 total
-
-**Ready:** 12 · **Blocked:** 3
-```
-
----
-
-## TypeScript SDK
-
-For programmatic access:
-
-```typescript
-import { issues, epics, on } from 'beads-workflows'
-
-// Query issues
-const ready = await issues.ready()
-const issue = await issues.get('proj-123')
-const bugs = await issues.list({ type: 'bug', status: 'open' })
-
-// Mutate issues (calls bd CLI for safety)
-await issues.create({ title: 'New task', type: 'task', priority: 2 })
-await issues.update('proj-123', { status: 'in_progress' })
-await issues.close('proj-123')
-
-// Query epics
-const epic = await epics.get('proj-100')
-const children = await epics.children('proj-100')
-const progress = await epics.progress('proj-100')  // { total: 5, closed: 3 }
-
-// Subscribe to events
-on.issue.created(issue => console.log(`Created: ${issue.id}`))
-on.issue.ready(issue => console.log(`Ready: ${issue.id}`))
-on.issue.closed(issue => console.log(`Closed: ${issue.id}`))
-on.issue.unblocked(issue => console.log(`Unblocked: ${issue.id}`))
-on.epic.completed(epic => console.log(`Epic done: ${epic.id}`))
-```
-
-### Custom Beads Location
+## Quick Start
 
 ```typescript
 import { Beads } from 'beads-workflows'
 
-// Create instance for a specific project
-const project = Beads({ path: '~/other-project/.beads' })
+const beads = await Beads()
 
-const ready = await project.issues.ready()
-project.on.issue.closed(issue => {
-  console.log(`Closed in other project: ${issue.id}`)
+// List ready issues
+const ready = await beads.issues.ready()
+
+// Create and close issues
+await beads.issues.create({ title: 'New task', type: 'task' })
+await beads.issues.close('bw-123')
+```
+
+## Event Handlers
+
+Drop handler files in `.beads/` - they execute when issues change:
+
+```typescript
+// .beads/on.issue.created.ts
+export default async ({ issue, beads }) => {
+  console.log(`New issue: ${issue.title}`)
+}
+
+// .beads/on.issue.closed.ts
+export default async ({ issue, beads }) => {
+  // Auto-close epic when all children done
+  for (const epicId of issue.blocks) {
+    const progress = await beads.epics.progress(epicId)
+    if (progress.percentage === 100) {
+      await beads.issues.close(epicId)
+    }
+  }
+}
+```
+
+## Scheduled Handlers
+
+```typescript
+// .beads/every.hour.ts - runs hourly
+export default async ({ issues }) => {
+  const stale = issues.filter(i => /* stale check */)
+  console.log(`Found ${stale.length} stale issues`)
+}
+
+// .beads/every.day.ts - runs daily
+// .beads/every.week.ts - runs weekly
+```
+
+Or use the `every()` API for custom crons:
+
+```typescript
+import { every } from 'beads-workflows'
+
+every('0 9 * * 1-5', async ({ issues }) => {
+  console.log('Good morning!')
 })
-
-// Work with multiple projects
-const projectA = Beads({ path: '~/project-a/.beads' })
-const projectB = Beads({ path: '~/project-b/.beads' })
 ```
 
 ## CLI
 
 ```bash
-# Start workflow daemon (watches .beads, runs handlers)
-npx beads-workflows
+# Watch mode (daemon)
+beads-workflows run
 
-# With options
-npx beads-workflows --path ~/projects/myapp/.beads
-npx beads-workflows --verbose
+# Single pass
+beads-workflows run --once
 
-# Initialize in current project
-npx beads-workflows init
+# View execution history
+beads-workflows list
+beads-workflows list --failed
 
-# Check status
-npx beads-workflows status
+# Retry failed
+beads-workflows retry bw-123 closed
+beads-workflows retry --all-failed
 ```
 
-## Available Events
+## GitHub Action
 
-| Event | Globals | Triggered When |
-|-------|---------|----------------|
-| `on.issue.created` | `issue` | New issue created |
-| `on.issue.updated` | `issue`, `changes` | Issue modified |
-| `on.issue.closed` | `issue` | Issue closed |
-| `on.issue.reopened` | `issue` | Closed issue reopened |
-| `on.issue.started` | `issue` | Status → in_progress |
-| `on.issue.ready` | `issue` | No blockers, can work |
-| `on.issue.blocked` | `issue`, `blocker` | Gained a blocker |
-| `on.issue.unblocked` | `issue` | All blockers resolved |
-| `on.dep.added` | `issue`, `dependency` | Dependency added |
-| `on.dep.removed` | `issue`, `dependency` | Dependency removed |
-| `on.epic.completed` | `epic`, `children` | All children closed |
-| `on.epic.progress` | `epic`, `progress` | Child closed/opened |
-| `on.sync` | `events` | After git sync |
+Runs workflows on push, schedule, or manual trigger:
 
-## Global Helpers
-
-Available in all handler files:
-
-```typescript
-// Logging
-log(message: string): void
-
-// Notifications (configurable destination)
-notify(message: string): Promise<void>
-
-// Dispatch to external system
-dispatch(issue: Issue): Promise<void>
-
-// Execute bd commands
-bd(command: string, args?: string[]): Promise<string>
+```yaml
+name: beads-workflows
+on:
+  push:
+    branches: [main]
+    paths: ['.beads/issues.jsonl']
+  schedule:
+    - cron: '0 * * * *'   # hourly
+    - cron: '0 0 * * *'   # daily
 ```
 
-## Architecture
+See [GitHub Action docs](docs/github-action.mdx) for full setup.
 
-```
-beads-workflows
-├── Reads directly from .beads/issues.jsonl (fast queries)
-├── Writes via bd CLI (ensures daemon sync, race condition safety)
-├── Watches issues.jsonl for changes
-├── Parses events, executes matching on.*.ts handlers
-└── Injects globals before running handler code
-```
+## APIs
 
-## Types
+| API | Description |
+|-----|-------------|
+| `Beads()` | Main factory with issues/epics access |
+| `issues.list()` | Query issues with filters |
+| `issues.ready()` | Issues with no blockers |
+| `issues.create()` | Create new issues |
+| `epics.progress()` | Epic completion tracking |
+| `Workflows()` | Execution history and retry |
+| `diff()` | Change detection between commits |
+| `every()` | Register scheduled handlers |
 
-```typescript
-interface Issue {
-  id: string
-  title: string
-  description?: string
-  status: 'open' | 'in_progress' | 'closed'
-  type: 'task' | 'bug' | 'feature' | 'epic'
-  priority: 0 | 1 | 2 | 3 | 4
-  assignee?: string
-  labels?: string[]
-  created: Date
-  updated: Date
-  closed?: Date
-  dependsOn: string[]
-  blocks: string[]
-  parent?: string
-  children?: string[]
-}
+## Documentation
 
-interface Epic extends Issue {
-  type: 'epic'
-  children: string[]
-}
+Full documentation in [`docs/`](docs/):
 
-interface Changes {
-  [field: string]: { from: any; to: any }
-}
-
-interface Progress {
-  total: number
-  closed: number
-  percentage: number
-}
-```
+- [Getting Started](docs/index.mdx)
+- [Issues API](docs/issues.mdx)
+- [Epics API](docs/epics.mdx)
+- [Event Handlers](docs/handlers.mdx)
+- [Scheduled Handlers](docs/schedule.mdx)
+- [CLI Reference](docs/cli.mdx)
+- [GitHub Action](docs/github-action.mdx)
 
 ## License
 

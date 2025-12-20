@@ -1,0 +1,13 @@
+{
+  "index": "Overview",
+  "beads": "Beads API",
+  "issues": "Issues",
+  "epics": "Epics",
+  "handlers": "Event Handlers",
+  "schedule": "Scheduled Handlers",
+  "workflows": "Workflows API",
+  "watcher": "Watcher & Scanner",
+  "components": "JSX Components",
+  "cli": "CLI Reference",
+  "github-action": "GitHub Action"
+}
