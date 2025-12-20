@@ -57,6 +57,22 @@ export type { EpicsApi, EpicProgress, EpicFilter } from './epics'
 export { Beads, autoDetectBeads } from './beads'
 export type { BeadsOptions, BeadsInstance } from './beads'
 
+// Watcher
+export { createWatcher } from './watcher'
+export type { Watcher, WatcherEvent, WatcherEventType, WatcherOptions } from './watcher'
+
+// Scanner
+export { createScanner } from './scanner'
+export type { Scanner, HandlerInfo } from './scanner'
+
+// Init
+export { initWorkflows } from './init'
+export type { InitOptions, InitResult } from './init'
+
+// Runtime
+export { createRuntime } from './runtime'
+export type { Runtime, HandlerContext, HandlerGlobals, HandlerFn, ExecutionResult, EventData } from './runtime'
+
 // JSX Components (render to markdown for agents.mdx)
 export {
   Issue as IssueComponent,
